@@ -1,0 +1,650 @@
+---
+title: "ISLR Problems"
+author: "Stan"
+date: "10/06/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+```{r 2.9}
+Auto = read.table ("Auto.data", header=T, na.strings="?")
+dim(Auto) # dimensions
+# fix(Auto) # viewer
+Auto = na.omit(Auto)
+dim(Auto)
+plot(Auto$cylinders, Auto$mpg)
+#identify(Auto$cylinders, Auto$mpg, Auto$horsepower)
+hist(Auto$cylinders, breaks = 3)
+```
+
+```{r 2.10}
+library(MASS)
+?Boston
+dim(Boston)
+pairs(Boston)
+```
+  
+  
+```{r 3.6 LAB: Linear Regression}
+library(MASS)
+install.packages("ISLR")
+library(ISLR)
+names(Boston)
+lm.fit=lm(medv~lstat, data=Boston)
+confint(lm.fit)
+attach(Boston)
+```
+```{r 3.6 LAB: Linear Regression part 2}
+plot(lstat, medv, pch=1:5)
+abline(lm.fit)
+```
+```{r }
+par(mfrow = c(2 ,2))
+plot(lm.fit)
+```
+
+```{r 3.6}
+lm.fit = lm(medv~.,data=Boston)
+summary (lm.fit)
+```
+
+```{r 3.6 Now let's compute the VIF}
+library(car)
+vif(lm.fit)
+```
+
+```{r 3.6}
+library(MASS)
+attach(Boston)
+lm.fit2 = lm (medv~lstat + I(lstat^2))
+par(mfrow=c(2,2))
+plot(lm.fit2)
+```
+
+```{r 3.7.8}
+?Auto
+Auto.lm = lm(mpg~horsepower, data=Auto)
+summary(Auto.lm)
+
+predict (Auto.lm, data.frame( horsepower = c(98) ), interval = "confidence", level=0.95)
+predict (Auto.lm, data.frame( horsepower = c(98) ), interval = "prediction", level=0.95)
+
+plot(Auto$horsepower, Auto$mpg)
+abline(Auto.lm)
+par(mfrow=c(2,2))
+plot(Auto.lm)
+```
+```{r 3.7.9}
+pairs(Auto)
+symnum(cor(data.frame(Auto[,1:8], log(Auto$mpg))))
+Auto.lm = lm(log(mpg)~.-name, data=Auto)
+summary(Auto.lm)
+par(mfrow=c(2,2))
+plot(Auto.lm)
+```
+
+```{r 4.7.10}
+library(ISLR)
+?Weekly
+summary(Weekly)
+attach(Weekly)
+plot(sort(Lag3), sort(rnorm(1089)))
+
+
+
+train = (Year >= 1990 & Year <= 2008)
+
+# Logistic regression
+glm.fits = glm(Direction~I(1/1+exp(Lag1))+Lag1+Lag2+Lag3, family="binomial",data=Weekly, subset=train)
+summary(glm.fits)
+
+probs = predict(glm.fits, Weekly[!train,], type="response")
+pred = rep("Down", dim(Weekly[!train,])[1])
+pred[probs>0.5] = "Up"
+logreg.table = table(pred, Direction[!train])
+logreg.success.rate = mean(pred == Direction[!train])
+
+# LDA
+library(MASS)
+lda.fits = lda(Direction~Lag1+Lag2+Lag3+Lag4+Lag1*Lag2, data=Weekly, subset=train)
+lda.fits
+
+# QDA
+library(MASS)
+qda.fits = qda(Direction~Lag2, data=Weekly, subset=train)
+qda.fits
+
+probs = predict(qda.fits, Weekly[!train,])
+pred = probs$class
+lda.table = table(pred, Direction[!train])
+lda.success.rate = mean(pred == Direction[!train])
+
+#KNN
+
+library ( class )
+train.X = c(Lag2 [train])
+test.X = as.matrix(Lag2 [!train])
+train.Direction = Direction [ train ]
+set.seed (1)
+knn.pred = knn ( train.X , test.X , train.Direction , k=4)
+knn.table = table(knn.pred, Direction[!train])
+knn.success.rate = mean(knn.pred == Direction[!train])
+
+
+plot(Lag1[Direction=="Up"], Lag2[Direction=="Up"])
+points(Lag1[Direction=="Down"], Lag2[Direction=="Down"], pch=8)
+```
+
+```{r 5.4.9}
+library(MASS)
+attach(Boston)
+
+# mean
+mu.hat = mean(medv)
+mu.hat.se = sd(medv)/sqrt(dim(Boston)[1])
+boot.fn=function(data, index)
+  return(mean(data[index,]$medv))
+library(boot)
+boot.result = boot(Boston, boot.fn, R=1000)
+mu.hat.95 = c(mu.hat - 1.96*sd(boot.result$t), mu.hat + 1.96*sd(boot.result$t))
+
+# median
+mu.med.hat = median(medv)
+boot.med.fn=function(data, index)
+  return(median(data[index,]$medv))
+boot.med.result = boot(Boston, boot.med.fn, R=1000)
+
+# 10th percentile
+mu.hat.10perc = quantile(Boston$medv, c(0.1))
+boot.10perc.fn=function(data,index)
+  return(quantile(data[index,]$medv, c(0.1)))
+boot.10perc.result = boot(Boston, boot.10perc.fn, R=10000)
+
+```
+
+
+```{r 6.5.3 Lab about best subset selection using CV}
+set.seed(1)
+library(ISLR)
+library(leaps)
+Hitters = na.omit ( Hitters )
+train = sample(c(TRUE,FALSE),nrow(Hitters),rep=TRUE)
+test = (!train)
+regfit.best = regsubsets(Salary~., data=Hitters[train,],nvmax=19)
+test.mat = model.matrix(Salary~., data = Hitters [ test ,])
+```
+
+
+```{r 6.8.8}
+set.seed(1)
+X = rnorm(100)
+eps = rnorm(100)
+scaled = 2371
+beta.0 = 5/scaled
+beta.1 = -11/scaled
+beta.2 = 7/scaled
+beta.3 = -20/scaled
+Y = beta.0 + X^7/50 + eps # + X^2 * beta.2 + X^3 * beta.3 + eps
+
+library(leaps)
+regfit.best = regsubsets(Y~., data=data.frame(Y, poly(X,8, raw=TRUE)), nvmax=11, method="backward")
+plot(regfit.best, scale="adjr2")
+plot(regfit.best, scale="r2")
+plot(regfit.best, scale="bic")
+plot(regfit.best, scale="Cp")
+
+library(glmnet)
+
+cv.out = cv.glmnet(poly(X,8, raw=TRUE) , Y , alpha=1, lambda = exp(seq(-25,25)))
+plot(cv.out)
+bestlam = cv.out$lambda.min
+lasso.mod = glmnet(poly(X,8, raw=TRUE) , Y , alpha =1 , lambda = bestlam)
+summary(lasso.mod)
+coef(lasso.mod)
+```
+```{r 7.8.1}
+library(ISLR)
+attach(Wage)
+fit = lm(wage~poly(age, 4), data = Wage )
+summary(fit)
+agelims = range(Wage$age)
+age.grid = seq(from=agelims[1], to=agelims[2])
+preds = predict(fit, list(age=age.grid), se=TRUE)
+se.bands = cbind(preds$fit + 2*preds$se.fit, preds$fit - 2*preds$se.fit)
+
+par ( mfrow = c (1 ,2) , mar = c (4.5 ,4.5 ,1 ,1), oma=c(0,0,4,0))
+plot ( age , wage , xlim = agelims , cex =.5 , col =" darkgrey ")
+title (" Degree -4 Polynomial " , outer = T )
+
+lines ( age.grid , preds$fit , lwd =2 , col =" blue ")
+matlines ( age.grid , se.bands , lwd =1 , col =" blue " , lty =3)
+
+fit = glm ( I ( wage > 250)~poly(age ,4) , data = Wage , family = binomial )
+preds = predict(fit, list(age=age.grid), se=TRUE)
+preds.pfit = exp(preds$fit)/(1+exp(preds$fit))
+se.bands.logit = cbind(preds$fit + 2 * preds$se.fit, preds$fit - 2*preds$se.fit)
+se.bands.p = exp(se.bands.logit)/(1+exp(se.bands.logit))
+
+plot ( age , I ( wage >250) , xlim = agelims , type ="n" , ylim = c (0 ,.2) )
+points ( jitter ( age ) , I (( wage >250) /5) , cex =.5 , pch ="|" ,col =" darkgrey ")
+lines ( age.grid , preds.pfit , lwd = 2 , col ="blue")
+matlines ( age.grid , se.bands.p , lwd =1 , col ="blue" , lty =3)
+
+```
+```{r 7.9.6 Choosing the degree in polynomial regression using CV}
+
+library(ISLR)
+library(boot)
+
+set.seed (17)
+cv.error.20 = rep (0 ,20)
+glm.fits = list()
+for ( i in 1:20) {
+  glm.fit = glm ( wage~poly ( age , i ) , data = Wage )
+  glm.fits <- c(glm.fits, list(glm.fit))
+  cv.error.20[ i ]= cv.glm ( Wage , glm.fit , K =10) $ delta [2]
+}
+
+plot(seq(1,20), cv.error.20, type="b")
+min.point = min(cv.error.20)
+sd.points = sd(cv.error.20)
+abline(h=min.point + 0.2 * sd.points, col="red", lty="dashed")
+abline(h=min.point - 0.2 * sd.points, col="red", lty="dashed")
+legend("topright", "0.2-standard deviation lines", lty="dashed", col="red")
+
+glm.fit = glm(wage ~ poly(age, which.min(cv.error.20)), data = Wage)
+pred = predict(glm.fit, data.frame(age=seq(min(age),max(age))))
+plot(age, wage, col="darkgrey")
+lines(seq(min(age), max(age)), pred, col="green", lwd=2)
+```
+
+
+```{r 7.9.6 Choosing the number of cuts in a step function using CV}
+
+library(ISLR)
+library(boot)
+
+set.seed (17)
+cv.error.20 = rep (1,10)
+glm.fits = list()
+attach(Wage)
+for ( i in 2:11) {
+  Wage$age.cut = cut(age, i)
+  glm.fit = glm ( wage ~ age.cut , data = Wage )
+  glm.fits <- c(glm.fits, list(glm.fit))
+  cv.error.20[ i -1 ]= cv.glm ( Wage , glm.fit , K =10) $ delta [2]
+}
+
+plot(seq(2,11), cv.error.20, type="b")
+ncuts.best = which.min(cv.error.20)+1
+
+#Wage$age.cut = 
+glm.fit = glm(wage ~ cut(age, 8), data = Wage)
+pred = predict(glm.fit, data.frame(age=seq(agelims[1],agelims[2])))
+plot(age, wage, col="darkgrey")
+lines(seq(agelims[1],agelims[2]), pred, col="green", lwd=2)
+
+lm.fit = glm(wage~cut(age, 8), data=Wage)
+agelims = range(Wage$age)
+age.grid = seq(from=agelims[1], to=agelims[2])
+lm.pred = predict(lm.fit, data.frame(age=age.grid))
+plot(wage~age, data=Wage, col="darkgrey")
+lines(age.grid, lm.pred, col="red", lwd=2)
+```
+
+```{r 7.9.11}
+x.1 = rt(100, 5)
+x.2 = x.1 + rnorm(100)/5
+y = x.1 * x.2 + x.1/2 + x.2/3 + rnorm(100,0,10)
+
+#backfitting
+beta.1 = 13
+beta.2 = 0
+
+beta.0.olds = beta.1.olds = beta.2.olds = list()
+
+for (i in 1:1000) {
+  a = y-beta.1*x.1
+  beta.2 = lm(a~x.2)$coef[2]
+  
+  a = y-beta.2*x.2
+  beta.1 = lm(a~x.1)$coef[2]
+  beta.0 = lm(a~x.1)$coef[1]
+  
+  beta.0.olds = c(beta.0.olds, beta.0)
+  beta.1.olds = c(beta.1.olds, beta.1)
+  beta.2.olds = c(beta.2.olds, beta.2)
+}
+
+plot(seq(1,1000), beta.0.olds, ylim = range(beta.0.olds, beta.1.olds, beta.2.olds), col="red", type="l", lwd=2)
+lines(seq(1,1000), beta.1.olds, col="blue", type="l", lwd=2)
+lines(seq(1,1000), beta.2.olds, col="green", type="l", lwd=2)
+
+linm = lm(y~x.1+x.2)
+abline(coef(linm)[1], 0, col="red", lty=2)
+abline(coef(linm)[2], 0, col="blue", lty=2)
+abline(coef(linm)[3], 0, col="green", lty=2)
+```
+```{r 8.3.1}
+library(tree)
+library(ISLR)
+set.seed(17)
+attach(Carseats)
+High=ifelse(Sales<=8, "No", "Yes")
+Carseats = data.frame(Carseats, High)
+
+tree.carseats=tree(as.factor(High)~.-Sales, Carseats)
+summary(tree.carseats)
+plot(tree.carseats)
+
+set.seed (2)
+train = sample (1: nrow ( Carseats ) , 200)
+Carseats.test = Carseats [ - train ,]
+High.test = High [ - train ]
+tree.carseats = tree ( as.factor(High)~.- Sales , Carseats , subset = train )
+tree.pred = predict ( tree.carseats , Carseats.test, type="class")
+table( tree.pred , High.test )
+```
+
+
+```{r Gini/Entropy/Class-error plot}
+pm.1 = seq(0.001,0.999,0.001)
+pm.2 = 1-pm.1
+class.error = 1-pmax(pm.1, pm.2)
+gini = pm.1 * (1-pm.1) + pm.2 * (1-pm.2)
+entropy = -pm.1*log(pm.1)-pm.2*log(pm.2)
+plot(pm.1, pm.1, ylim=range(gini, entropy, pm.2, class.error), col="red", lty=2,lwd=2, type="l")
+lines(pm.1, pm.2, col="blue", lty=2,lwd=2, type="l")
+lines(pm.1, entropy, col="green", lty=1,lwd=2, type="l")
+lines(pm.1, class.error, col="violet", lty=1,lwd=2, type="l")
+lines(pm.1, gini, col="yellow", lty=1,lwd=2, type="l")
+```
+
+```{r 8.4.10}
+library(ISLR)
+Hitters = ISLR::Hitters
+Hitters = Hitters[-which(is.na(Hitters$Salary)), ]
+
+library(gbm)
+train = seq(1,200)
+
+# boosting
+shrinks = seq(100,1)/1000
+train.rsss = rep(0,100)
+test.rsss = rep(0,100)
+for (i in 1:100) {
+  boost.hitters = gbm(Salary~., data=Hitters[train, ], distribution="gaussian", n.trees=1000, interaction.depth=3, shrinkage=shrinks[i], verbose=F)
+  train.error = sum((predict(boost.hitters, n.trees=1000)-Hitters[train,]$Salary)^2)
+  test.error = sum((predict(boost.hitters, Hitters[-train, ], n.trees=1000)-Hitters[-train,]$Salary)^2)
+  train.rsss[i] = train.error
+  test.rsss[i] = test.error
+}
+
+# plot training/test rss
+plot(shrinks, train.rsss, ylim=range(test.rsss, train.rsss), col="red", type="b")
+lines(shrinks, test.rsss, col="blue", type="b")
+
+# lasso
+library(glmnet)
+cv.out = cv.glmnet(model.matrix(Salary~., Hitters[train,]) , Hitters[train,]$Salary, alpha=1)
+bestlam = cv.out$lambda.min
+lasso.mod = glmnet(model.matrix(Salary~., Hitters[train,]) , Hitters[train,]$Salary, alpha =1 , lambda = bestlam)
+test.error = sum((predict(lasso.mod, model.matrix(Salary~., Hitters[-train,]))-Hitters[-train,]$Salary)^2)
+abline(test.error, 0, lty=2, col="brown")
+
+# best subset
+library(leaps)
+test.errors = rep(0,12)
+bestsub = regsubsets(Salary~., Hitters[train,], nvmax=12)
+for (i in 1:12) {
+  coefi = coef(bestsub, i)
+  pred = model.matrix(Salary~., Hitters[-train,])[,names(coefi)]%*%coefi
+  test.errors[i] = sum((pred-Hitters[-train,]$Salary)^2)
+}
+lines(seq(1,12)/120, test.errors, col="green", type="b")
+
+```
+
+```{r 9.6.1 Support Vector Classifier Lab}
+set.seed(2)
+x=matrix(rnorm(20*2), ncol=2)
+y=c(rep(-1,10), rep(1,10))
+x[y==1,] = x[y==1,] + 1
+plot(x[,2],x[,1], col=(3-y))
+# Not linearly separable
+
+dat = data.frame(x=x, y=as.factor(y))
+library(e1071)
+svmfit = svm(y~., data=dat, kernel="linear", cost=10, scale=FALSE)
+plot(svmfit, dat)
+#indices of support vectors
+svmfit$index
+summary(svmfit)
+
+x=matrix(rnorm(20*2), ncol=2)
+x [ y ==1 ,]= x [ y ==1 ,]+2.5
+plot (x[,2], x[,1] , col =( y +5) /2 , pch =19)
+# Now the observations are just barely linearly separable
+dat = data.frame(x=x, y=as.factor(y))
+svmfit = svm(y~., data=dat, kernel="linear", cost=1e5, scale=FALSE)
+plot(svmfit, dat)
+summary(svmfit)
+
+
+```
+
+```{r 9.6.2}
+# Let's now move onto Support Vector Machines
+set.seed(1)
+x=matrix(rnorm(200*2), ncol=2)
+x[1:100,] = x[1:100,]+2
+x[101:150, ]=x[101:150, ]-2
+y=c(rep(1,150), rep(2,50))
+dat = data.frame(x=x, y=as.factor(y))
+plot(x, col=y+5) # clearly a non-linear boundary
+
+train=sample(200, 100)
+svmfit=svm(y~., data=dat[train, ], kernel="radial", gamma=10, cost=1)
+plot(svmfit, dat[train,])
+
+# let's do cross-validation to select the best choice of gamma and cost for an SVM with a radial kernel
+set.seed (1)
+tune.out = tune (svm, y~. , data = dat [ train ,] , kernel ="linear" , ranges = list ( cost = c (cost.now) ,  gamma = c (0.5 ,1 ,2 ,3 ,4)))
+summary (tune.out)
+```
+```{r 9.7 Why does a small cost SVC perform better when data is barely separable ?}
+# Let's now move onto Support Vector Machines
+set.seed(2)
+x=matrix(rnorm(200*2), ncol=2)
+y=rep(1,200)
+y[x[,1]*2+x[,2]*3>0]=2
+x[1:200,1] = x[1:200,1] + rnorm(200-1+1, 0, 1)
+plot(x, col=y+5) # linear boundary, barely separable data
+dat = data.frame(x=x, y=as.factor(y))
+
+train=sample(200, 100)
+
+# let's do cross-validation to select the best choice of cost 
+set.seed(1)
+errors.cv = c()
+errors.test = c()
+
+costs.totest = exp(seq(-50, 50)/10)
+for (i in costs.totest) {
+  tune.out = tune (svm, y~. , data = dat [ train ,] , kernel ="linear" , ranges = list (cost = c (i)))
+  errors.cv = c(errors.cv, tune.out$performances$error)
+  pred = predict(tune.out$best.model, newdata = dat[-train, -3])
+  errors.test = c(errors.test, mean(pred != dat[-train,]$y))
+}
+
+plot(seq(-50, 50)/10, errors.cv, ylim=range(errors.cv, errors.test), col="red", type="l")
+lines(seq(-50, 50)/10, errors.test, col="blue", type="l")
+abline(min(errors.test),0)
+```
+
+```{r 9.8 Predicting high/low mileage based on the Auto data set}
+library(ISLR)
+Auto$highmpg = as.factor(ifelse(Auto$mpg>median(Auto$mpg), 1, 0))
+tune.out.linear = tune (svm, highmpg~.-mpg , data = Auto , kernel ="linear" , ranges = list (cost = exp(seq(-5,5)/2)))
+
+tune.out.poly = tune (svm, highmpg~.-mpg , data = Auto , kernel ="polynomial" , ranges = list (cost = exp(seq(-5,5)/2), degree=seq(1,5)))
+
+tune.out.radial = tune (svm, highmpg~.-mpg , data = Auto , kernel ="radial" , ranges = list (cost = exp(seq(-5,5)/2), gamma=1.5^seq(-4,4)))
+
+
+plot(log(summary(tune.out.linear)$performances$cost), summary(tune.out.linear)$performances$error, type="b", col="blue", ylim=c(0,0.5))
+
+cost.order = order(summary(tune.out.poly)$performances$cost)
+lines(log(summary(tune.out.poly)$performances[cost.order,]$cost), summary(tune.out.poly)$performances[cost.order,]$error, type="b",col="green")
+
+cost.order = order(summary(tune.out.radial)$performances$cost)
+lines(log(summary(tune.out.radial)$performances[cost.order,]$cost), summary(tune.out.radial)$performances[cost.order,]$error, type="b", col="red")
+
+library(e1071)
+mod = svm(highmpg~., data=Auto[,-9][,-1], kernel="linear", cost=1)
+plot(mod, Auto[,-9], weight~acceleration)
+
+# the boundary is not coloured, because it is not a line in weight-acceleration plane
+
+plot(Auto$acceleration, Auto$mpg, col=1+as.integer(predict(mod, newdata=Auto[,-9][,-1])))
+
+
+```
+
+```{r 10.4 Lab PCA}
+states = row.names(USArrests)
+pr.out = prcomp(USArrests, scale=TRUE)
+pr.out$rotation
+biplot(pr.out, scale=0)
+
+# list of variance explained by principal component
+pr.var = pr.out$sdev^2
+# now as a proportion
+pve = pr.var/sum(pr.var)
+
+plot ( pve , xlab =" Principal Component " , ylab =" Proportion of
+Variance Explained " , ylim = c (0 ,1) , type = 'b', col="blue", lty=2)
+
+points( cumsum(pve) , xlab =" Principal Component " , ylab =" Cumulative Proportion of
+Variance Explained " , ylim = c (0 ,1) , type = 'b', col="blue",lwd=2)
+
+```
+
+```{r 10.5.1 Lab K-Means Clustering}
+set.seed(2)
+x=matrix(rnorm(50*2), ncol=2)
+x[1:25,1]=x[1:25,1]+3
+x[1:25,2]=x[1:25,2]-4
+km.out = kmeans(x,3,nstart=10000)
+#even with nstart=10000, the model is not very robust and changes quite a lot (this performs 10000 simulations and chooses the best by the total within-cluster sum of squares)
+plot(x,col=km.out$cluster+2, pch=20, cex=2)
+```
+```{r 10.5.2 Hierarichical Clustering}
+hc.complete = hclust(dist(x), method="complete")
+hc.average = hclust(dist(x), method="average")
+hc.single = hclust(dist(x), method="single")
+
+par(mfrow=c(1,3))
+plot(hc.complete, main="Complete Linkage", xlab="", sub="", cex=.9)
+plot(hc.average, main="Average Linkage", xlab="", sub="", cex=.9)
+plot(hc.single, main="Single Linkage", xlab="", sub="", cex=.9)
+
+table(cutree (hc.complete , 2)) # 2 is the number of groups, not the height (which can also be specified)
+
+xsc = scale(x) # sometimes scaling is desirable
+
+# Now, let's use correlation as a similarity measure
+x = matrix ( rnorm (30*3) , ncol =3)
+dd = as.dist (1 - cor ( t ( x ) ) )
+plot ( hclust ( dd , method ="complete") , main =" Complete Linkage with Correlation - Based Distance " , xlab ="" , sub ="")
+
+```
+
+```{r NCI60 Data Example}
+library(ISLR)
+nci.labs=NCI60$labs
+nci.data=NCI60$data
+
+pr.out = prcomp ( nci.data , scale = TRUE )
+Cols = function ( vec ) {
+  cols = rainbow ( length ( unique ( vec ) ) )
+  return ( cols [ as.numeric ( as.factor ( vec ) ) ])
+}
+
+par(mfrow=c(1,3))
+plot(pr.out$x[,1:2], col=Cols(nci.labs), pch=19, xlab="Z1", ylab="Z2")
+plot(pr.out$x[,c(1,3)], col=Cols(nci.labs), pch=19, xlab="Z1", ylab="Z3")
+
+pr.var = pr.out$sdev^2
+# now as a proportion
+pve = pr.var/sum(pr.var)
+plot(seq(1,64), cumsum(pve)*100)
+```
+
+```{r Clustering NCI60}
+# Now, let's do some clustering
+sd.data = scale ( nci.data )
+
+par ( mfrow = c (1 ,3) )
+data.dist = dist ( sd.data )
+plot ( hclust ( data.dist ) , labels = nci.labs , main =" Complete
+Linkage " , xlab ="" , sub ="" , ylab ="")
+plot ( hclust ( data.dist , method ="average") , labels = nci.labs ,
+main =" Average Linkage " , xlab ="" , sub ="" , ylab ="")
+plot ( hclust ( data.dist , method ="single") , labels = nci.labs ,
+main =" Single Linkage " , xlab ="" , sub ="" , ylab ="")
+
+hc.out = hclust ( dist ( sd.data ) )
+hc.clusters = cutree ( hc.out ,4)
+table ( hc.clusters , nci.labs )
+
+par ( mfrow = c (1 ,1) )
+plot ( hc.out , labels = nci.labs )
+abline ( h =139 , col =" red ")
+
+# Comparison of K-means and Hierarchical clustering
+set.seed (2)
+km.out = kmeans ( sd.data , 4 , nstart =20)
+km.clusters = km.out$cluster
+table ( km.clusters , hc.clusters )
+
+```
+
+```{r Hierarchical clustering in PCA-plane}
+hc.out = hclust ( dist ( pr.out$x [ ,1:5]) )
+plot ( hc.out , labels = nci.labs , main =" Hier . Clust . on First
+Five Score Vectors ")
+table ( cutree ( hc.out ,4) , nci.labs )
+```
+
+
+```{r Gene Expression Analysis}
+
+TissueSamples = t(read.csv("Ch10Ex11.csv", header=F))
+sd.data = scale (TissueSamples)
+
+par ( mfrow = c (1 ,3) )
+data.dist = dist ( sd.data )
+labs = c(rep(1,20), rep(2,20))
+plot ( hclust ( data.dist ) , labels = labs , main =" Complete Linkage " , xlab ="" , sub ="" , ylab ="")
+plot ( hclust ( data.dist , method ="average") , labels = labs , main =" Average Linkage " , xlab ="" , sub ="" , ylab ="")
+plot ( hclust ( data.dist , method ="single") , labels = labs , main =" Single Linkage " , xlab ="" , sub ="" , ylab ="")
+
+hc.ave.out = hclust(data.dist, method="single")
+table ( cutree ( hc.ave.out ,2) , labs )
+
+
+# Now let's try logistic regression in PCA plane, probably better to do the supervised PCA version
+
+pr.out = prcomp ( sd.data , scale = TRUE )
+sd.data=cbind(pr.out$x[,1:3],labs)
+lm = glm(as.factor(labs)~., data=as.data.frame(sd.data), family="binomial")
+plot(pr.out$x[,1:2], col=labs+2, pch=19)
+very.good = mean(pr.out$rotation[,1]) + 1.96 * sd(pr.out$rotation[,])
+which(pr.out$rotation[,1]>very.good)
+```
